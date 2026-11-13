@@ -1,0 +1,18 @@
+info:
+  name: 8_eliminar_persona
+  type: http
+  seq: 8
+
+http:
+  method: DELETE
+  url: http://localhost:8085/api/personas/8
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJoYXNpZWwiLCJpYXQiOjE3OTQ1NDAzNTUsImV4cCI6MTc5NDYyNjc1NX0.xKyuGEPYjfuas7MdxJ1VAUFPR6tHXn3Rv9cQToYL5RybgdNeEKMrzAZLchcz0079
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,26 @@
+info:
+  name: 4_crear_persona
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: http://20.98.89.81:8085/api/personas
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Lucero",
+        "apellido": "Mendoza",
+        "ciudadOrigenId": 1
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJoYXNpZWwiLCJpYXQiOjE3OTQ1NDAzNTUsImV4cCI6MTc5NDYyNjc1NX0.xKyuGEPYjfuas7MdxJ1VAUFPR6tHXn3Rv9cQToYL5RybgdNeEKMrzAZLchcz0079
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

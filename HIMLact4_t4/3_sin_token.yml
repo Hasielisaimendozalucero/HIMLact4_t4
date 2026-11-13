@@ -1,0 +1,16 @@
+info:
+  name: 3_sin_token
+  type: http
+  seq: 3
+
+http:
+  method: GET
+  url: http://20.98.89.81:8085/api/personas
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

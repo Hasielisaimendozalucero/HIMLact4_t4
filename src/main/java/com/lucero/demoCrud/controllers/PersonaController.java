@@ -1,57 +1,113 @@
 package com.lucero.demoCrud.controllers;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import com.lucero.demoCrud.dto.PersonaRequestDTO;
+import com.lucero.demoCrud.dto.PersonaResponseDTO;
+import com.lucero.demoCrud.models.CiudadOrigen;
+import com.lucero.demoCrud.models.Persona;
+import com.lucero.demoCrud.repository.CiudadOrigenRepository;
+import com.lucero.demoCrud.repository.PersonaRepository;
+import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.lucero.demoCrud.models.Persona;
-import com.lucero.demoCrud.service.PersonaService;
-import com.lucero.demoCrud.service.CiudadOrigenService;
+import java.util.Map;
+import java.util.Optional;
 
-@Controller
+@RestController
+@RequestMapping("/api/personas")
 public class PersonaController {
 
-    @Autowired
-    private PersonaService personaService;
+    private final PersonaRepository personaRepository;
+    private final CiudadOrigenRepository ciudadOrigenRepository;
 
-    @Autowired
-    private CiudadOrigenService ciudadOrigenService;
-
-    // LISTAR
-    @GetMapping("/")
-    public String listar(Model model) {
-        model.addAttribute("personas", personaService.listarTodas());
-        return "index";
+    public PersonaController(PersonaRepository personaRepository, CiudadOrigenRepository ciudadOrigenRepository) {
+        this.personaRepository = personaRepository;
+        this.ciudadOrigenRepository = ciudadOrigenRepository;
     }
 
-    // FORMULARIO NUEVO
-    @GetMapping("/nuevo")
-    public String nuevo(Model model) {
-        model.addAttribute("persona", new Persona());
-        model.addAttribute("ciudades", ciudadOrigenService.listarTodas());
-        return "form";
+    // Método auxiliar para convertir Entity a DTO de respuesta
+    private PersonaResponseDTO convertirADTO(Persona p) {
+        String nombreCiudad = (p.getCiudadOrigen() != null)
+                ? p.getCiudadOrigen().getNombre() + " (" + p.getCiudadOrigen().getEstado() + ")"
+                : "Sin ciudad asignada";
+        return new PersonaResponseDTO(p.getId(), p.getNombre(), p.getApellido(), nombreCiudad);
     }
 
-    // GUARDAR
-    @PostMapping("/guardar")
-    public String guardar(@ModelAttribute Persona persona) {
-        personaService.guardar(persona);
-        return "redirect:/";
+    // a) GET para listar con paginación: /api/personas?page=0&size=5
+    @GetMapping
+    public ResponseEntity<Page<PersonaResponseDTO>> listarPersonas(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<PersonaResponseDTO> pagina = personaRepository.findAll(pageable).map(this::convertirADTO);
+        return ResponseEntity.ok(pagina);
     }
 
-    // FORMULARIO EDITAR
-    @GetMapping("/editar/{id}")
-    public String editar(@PathVariable Long id, Model model) {
-        model.addAttribute("persona", personaService.obtenerPorId(id));
-        model.addAttribute("ciudades", ciudadOrigenService.listarTodas());
-        return "form";
+    // a) GET para ver un registro individual por ID: /api/personas/{id}
+    @GetMapping("/{id}")
+    public ResponseEntity<?> obtenerPorId(@PathVariable Long id) {
+        Optional<Persona> personaOpt = personaRepository.findById(id);
+        if (personaOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Persona con ID " + id + " no encontrada"));
+        }
+        return ResponseEntity.ok(convertirADTO(personaOpt.get()));
     }
 
-    // ELIMINAR
-    @GetMapping("/eliminar/{id}")
-    public String eliminar(@PathVariable Long id) {
-        personaService.eliminar(id);
-        return "redirect:/";
+    // b) POST para crear una nueva Persona
+    @PostMapping
+    public ResponseEntity<?> crearPersona(@Valid @RequestBody PersonaRequestDTO dto) {
+        Optional<CiudadOrigen> ciudadOpt = ciudadOrigenRepository.findById(dto.getCiudadOrigenId());
+        if (ciudadOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "La CiudadOrigen con ID " + dto.getCiudadOrigenId() + " no existe"));
+        }
+
+        Persona nueva = new Persona();
+        nueva.setNombre(dto.getNombre());
+        nueva.setApellido(dto.getApellido());
+        nueva.setCiudadOrigen(ciudadOpt.get());
+
+        Persona guardada = personaRepository.save(nueva);
+        return ResponseEntity.status(HttpStatus.CREATED).body(convertirADTO(guardada));
+    }
+
+    // c) PUT para actualizar una Persona existente
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizarPersona(@PathVariable Long id, @Valid @RequestBody PersonaRequestDTO dto) {
+        Optional<Persona> personaOpt = personaRepository.findById(id);
+        if (personaOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Persona con ID " + id + " no encontrada"));
+        }
+
+        Optional<CiudadOrigen> ciudadOpt = ciudadOrigenRepository.findById(dto.getCiudadOrigenId());
+        if (ciudadOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "La CiudadOrigen con ID " + dto.getCiudadOrigenId() + " no existe"));
+        }
+
+        Persona existente = personaOpt.get();
+        existente.setNombre(dto.getNombre());
+        existente.setApellido(dto.getApellido());
+        existente.setCiudadOrigen(ciudadOpt.get());
+
+        Persona actualizada = personaRepository.save(existente);
+        return ResponseEntity.ok(convertirADTO(actualizada));
+    }
+
+    // d) DELETE para eliminar una Persona
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> eliminarPersona(@PathVariable Long id) {
+        if (!personaRepository.existsById(id)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Persona con ID " + id + " no encontrada"));
+        }
+        personaRepository.deleteById(id);
+        return ResponseEntity.ok(Map.of("mensaje", "Persona eliminada correctamente"));
     }
 }
